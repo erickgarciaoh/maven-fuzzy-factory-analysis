@@ -193,9 +193,10 @@ img, svg { max-width: 100%; display: block; }
   transition: color var(--motion-base);
 }
 .act-index__dot {
-  width: 8px; height: 8px; flex: none; border-radius: var(--radius-full);
-  border: 1.5px solid currentColor; background: transparent;
-  transition: background-color var(--motion-base), transform var(--motion-base);
+  width: 7px; height: 7px; flex: none; border-radius: var(--radius-full);
+  background: var(--border-default);
+  box-shadow: 0 0 0 0 transparent;
+  transition: background-color var(--motion-medium), transform var(--motion-medium), box-shadow var(--motion-medium);
 }
 .act-index__txt {
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
@@ -204,10 +205,17 @@ img, svg { max-width: 100%; display: block; }
   transition: opacity var(--motion-base), transform var(--motion-base);
 }
 .act-index a:hover { color: var(--text-primary); }
+.act-index a:hover .act-index__dot { background: var(--text-caption); transform: scale(1.25); }
 .act-index a:hover .act-index__txt { opacity: 1; transform: translateX(0); }
 .act-index a.is-active { color: var(--amber-text); }
-.act-index a.is-active .act-index__dot { background: var(--amber-text); transform: scale(1.15); }
+.act-index a.is-active .act-index__dot {
+  background: var(--amber-text); transform: scale(1.85);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focal) 22%, transparent);
+}
 .act-index a.is-active .act-index__txt { opacity: 1; transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) {
+  .act-index__dot, .act-index a.is-active .act-index__dot { transition: none; }
+}
 @media (max-width: 1199px) { .act-index { display: none; } }
 
 /* ---- Section rhythm ----------------------------------------------- */

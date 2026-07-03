@@ -35,6 +35,33 @@
   function setNum(key, val) { document.querySelectorAll('[data-num="' + key + '"]').forEach(function (el) { el.textContent = val; }); }
   function setTxt(key, val) { document.querySelectorAll('[data-txt="' + key + '"]').forEach(function (el) { el.textContent = val; }); }
 
+  // Count from 0 to `to`, formatting each frame with `fmt`. Reduced-motion = instant.
+  function countUp(el, to, fmt, dur) {
+    if (!el) return;
+    if (REDUCED) { el.textContent = fmt(to); return; }
+    dur = dur || 1200;
+    var start = null;
+    function step(t) {
+      if (start === null) start = t;
+      var p = Math.min((t - start) / dur, 1);
+      var eased = 1 - Math.pow(1 - p, 3); // cubic-out
+      el.textContent = fmt(to * eased);
+      if (p < 1) requestAnimationFrame(step); else el.textContent = fmt(to);
+    }
+    requestAnimationFrame(step);
+  }
+  function countKey(key, to, fmt, dur) { countUp(document.querySelector('[data-num="' + key + '"]'), to, fmt, dur); }
+
+  // Fire cb once when el first enters the viewport (immediately if already in view / reduced-motion).
+  function onceVisible(el, cb) {
+    if (!el) { cb(); return; }
+    if (REDUCED || !('IntersectionObserver' in window)) { cb(); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { io.disconnect(); cb(); } });
+    }, { threshold: 0.25 });
+    io.observe(el);
+  }
+
   function quarterLabel(iso) { // "2014-10-01T..." -> "Q4 2014"
     var y = iso.slice(0, 4), m = parseInt(iso.slice(5, 7), 10);
     return 'Q' + (Math.floor((m - 1) / 3) + 1) + ' ' + y;
@@ -81,20 +108,33 @@
   /* ---- Chart registry (theme re-render + resize) ------------------- */
   var charts = {}; // id -> echarts instance
   var renderers = {}; // id -> function(instance)
+  var drawn = {};    // id -> true once first rendered (build animation played)
   function mount(id) {
     var el = document.getElementById(id);
     if (!el || !window.echarts) return null;
     if (!charts[id]) charts[id] = window.echarts.init(el, null, { renderer: 'canvas' });
     return charts[id];
   }
+  function renderChart(id) {
+    var fn = renderers[id]; if (!fn) return;
+    var inst = mount(id); if (!inst) return;
+    fn(inst, palette()); drawn[id] = true;
+  }
+  // Lazy: a chart's build animation plays when it scrolls into focus, not at load.
+  var chartIO = ('IntersectionObserver' in window) ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) { chartIO.unobserve(e.target); renderChart(e.target.id); } });
+  }, { threshold: 0.25, rootMargin: '0px 0px -6% 0px' }) : null;
+
   function draw(id, fn) {
     renderers[id] = fn;
-    var inst = mount(id);
-    if (inst) fn(inst, palette());
+    if (drawn[id]) { renderChart(id); return; }        // re-render (e.g. funnel control change)
+    if (REDUCED || !chartIO) { renderChart(id); return; }
+    var el = document.getElementById(id);
+    if (el) chartIO.observe(el); else renderChart(id);
   }
   function redrawAll() {
     var p = palette();
-    Object.keys(renderers).forEach(function (id) { var inst = charts[id]; if (inst) renderers[id](inst, p); });
+    Object.keys(renderers).forEach(function (id) { var inst = charts[id]; if (inst && drawn[id]) renderers[id](inst, p); });
   }
   var rzT;
   window.addEventListener('resize', function () {
@@ -141,10 +181,13 @@
     if (DATA.eco) {
       var ch = DATA.eco.filter(function (r) { return r.grain === 'channel'; });
       var tot = ch.reduce(function (a, r) { a.s += r.sessions; a.o += r.orders; a.rev += r.revenue_usd; return a; }, { s: 0, o: 0, rev: 0 });
-      setNum('kpi-sessions', nf0.format(tot.s));
-      setNum('kpi-orders', nf0.format(tot.o));
-      setNum('kpi-revenue', money(tot.rev));
-      setNum('kpi-aov', money(tot.rev / tot.o));
+      var fInt = function (v) { return nf0.format(Math.round(v)); };
+      onceVisible(document.querySelector('.kpis'), function () {
+        countKey('kpi-sessions', tot.s, fInt);
+        countKey('kpi-orders', tot.o, fInt);
+        countKey('kpi-revenue', tot.rev, function (v) { return '$' + (v / 1e6).toFixed(2) + 'M'; });
+        countKey('kpi-aov', tot.rev / tot.o, function (v) { return '$' + Math.round(v); });
+      });
 
       // quarterly CVR sparkline
       var byQ = {};
@@ -157,11 +200,13 @@
     if (DATA.decomp) {
       var T = DATA.decomp.find(function (r) { return r.channel_group === 'TOTAL'; });
       if (T) {
-        setNum('cvr-2012', pct(T.cvr_2012, 2));
-        setNum('cvr-2015', pct(T.cvr_2015, 2));
         var delta = (T.cvr_2015 - T.cvr_2012) / T.cvr_2012;
-        var deltaEl = document.querySelector('[data-num="cvr-delta"]');
-        if (deltaEl) deltaEl.firstChild && (deltaEl.childNodes[1].textContent = ' +' + Math.round(delta * 100) + '% ');
+        var fPct = function (v) { return v.toFixed(2) + '%'; };
+        onceVisible(document.querySelector('.hero__metric'), function () {
+          countKey('cvr-2012', T.cvr_2012 * 100, fPct);
+          countKey('cvr-2015', T.cvr_2015 * 100, fPct, 1500);
+          countKey('cvr-delta', delta * 100, function (v) { return '+' + Math.round(v) + '%'; }, 1500);
+        });
       }
     }
   }
@@ -627,19 +672,19 @@
       document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('is-in'); });
     }
 
-    // active section in side-nav
+    // active section in side-nav — scrollspy against a thin band at the viewport's
+    // vertical centre; whichever section crosses that line is the active one.
     var navLinks = Array.prototype.slice.call(document.querySelectorAll('.act-index a'));
     var sections = navLinks.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+    function setActive(i) { navLinks.forEach(function (a, j) { a.classList.toggle('is-active', j === i); }); }
     if ('IntersectionObserver' in window) {
       var secObs = new IntersectionObserver(function (entries) {
         entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            var i = sections.indexOf(e.target);
-            navLinks.forEach(function (a, j) { a.classList.toggle('is-active', j === i); });
-          }
+          if (e.isIntersecting) { setActive(sections.indexOf(e.target)); }
         });
-      }, { threshold: 0.5, rootMargin: '-30% 0px -50% 0px' });
+      }, { threshold: 0, rootMargin: '-45% 0px -45% 0px' });
       sections.forEach(function (s) { if (s) secObs.observe(s); });
+      setActive(0); // hero active on load
     }
 
     // ensure charts already drawn resize once fonts settle
