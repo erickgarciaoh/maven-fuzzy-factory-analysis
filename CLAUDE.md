@@ -15,7 +15,7 @@ Primer paso de cualquier sesión de trabajo: verificar que el MCP de SQL respond
 |---|---|---|---|
 | 0 | Setup: estructura, git, CLAUDE.md con plan | Repo versionado | Hecho |
 | 1 | Ingesta: BDD del proyecto + tabla raw (todo NVARCHAR) + SP importador del/los archivo(s) de data/raw/ (loop ejecutar→corregir) | `COUNT(*)` en raw == filas del archivo (sin truncamiento) | Hecho |
-| 2 | Exploración + calidad de datos: perfilar, VERIFICAR premisas contra la fuente real, fijar reglas de limpieza/ventana temporal, y PROPONER las preguntas de análisis que el dataset soporta | Doc de hallazgos; premisas confirmadas o corregidas; lista de preguntas de análisis (Fase 4) propuesta y aprobada por Erick | Pendiente |
+| 2 | Exploración + calidad de datos: perfilar, VERIFICAR premisas contra la fuente real, fijar reglas de limpieza/ventana temporal, y PROPONER las preguntas de análisis que el dataset soporta | Doc de hallazgos; premisas confirmadas o corregidas; lista de preguntas de análisis (Fase 4) propuesta y aprobada por Erick | Hecho |
 | 3 | Transformación: SPs que limpian/castean y materializan el modelo procesado (estrella ligera: fact + dims) | Tablas core pobladas; conteos cuadran con raw | Pendiente |
 | 4 | Análisis: una vista por pregunta de negocio en esquema `analysis`; export a JSON estático | Cada vista responde su pregunta; JSON generados | Pendiente |
 | 5 | Diseño de delivery con el skill `/impeccable`: mapeo historia→visual, layout (anti-bloatware) | Brief de visualización aprobado | Pendiente |
@@ -26,10 +26,15 @@ Primer paso de cualquier sesión de trabajo: verificar que el MCP de SQL respond
 Regla de corte anti-abandono: las fases 1→6 forman una pieza de portfolio completa y publicable por sí sola. La 7 es aditiva; si baja la energía, parar en 6 con entregable terminado, no a medias.
 
 ### Preguntas de análisis (Fase 4)
-<!-- Se fijan en Fase 2 y se aprueban ANTES de construir (regla anti-abandono). Origen: (a) preguntas que trae Erick, (b) candidatas derivadas de la exploración cuando el dataset es desconocido (ej. bajado de internet), o (c) mezcla. Listar aquí las acordadas; marcar core vs adicionales. -->
+Fijadas y aprobadas por Erick en Fase 2 (2026-07-03). Detalle y límites de método en [`docs/02_data_quality.md`](docs/02_data_quality.md) §4. **Core** (Fases 3–6, una vista `analysis` + JSON cada una):
+1. **P4 — Funnel de conversión multi-paso** por período y device (window functions sobre pageviews). Columna vertebral del data-story.
+2. **P3 — Reconstrucción y evaluación de tests A/B** (landers, billing vs billing-2): ventanas disjuntas, asignación inferida por fecha, test z de proporciones + lift anualizado. Diferenciador de portfolio.
+3. **P1 — Descomposición del crecimiento de CVR** 2012→2015 (intra-canal vs mix-shift; descomposición aditiva).
+4. **P2 — Economía por canal con margen**: sesiones→órdenes→revenue→cogs→refunds por canal/producto; margen bruto y tasa de refund por producto/trimestre.
 
 ## Backlog (explícitamente diferido)
-<!-- Ideas diferidas. Nada se descarta sin registrarse aquí. -->
+- **P5 — Impacto de lanzamientos de producto** (before/after CVR/AOV/mix por launch; matriz de co-compra cross-sell). Diferida de Fase 4 el 2026-07-03; candidata a capa aditiva (Fase 7 Power BI) o a una v2 del data-story.
+- **P6 — Retención y valor del usuario** (cohortes de primera sesión, repeat rate, revenue acumulado 30/60/90 días por canal). Diferida de Fase 4 el 2026-07-03; conecta con la metodología LTV del proyecto `patient_revenue_ltv`.
 
 ## Stack
 - Motor de datos único: SQL Server, instancia `XTREMUS\DB001` (Windows Auth), vía MCP `sql-mcp-server`.
@@ -49,7 +54,7 @@ El diseño del data-story HTML y del reporte de Power BI DEBE basarse en el desi
 - Importar TODO como NVARCHAR(4000) a `raw.*` primero; castear en el SP de transformación (Fase 3), no en la carga.
 - BULK INSERT en modo nativo (`FIELDTERMINATOR`/`ROWTERMINATOR`), sin `FORMAT='CSV'`+`FIELDQUOTE`: esa combinación rompe el proveedor OLE DB "BULK" (error IID_IColumnsInfo) en esta instancia al leer `website_pageviews.csv`. Consecuencia: `raw.website_pageviews.created_at` llega con comillas dobles literales — limpiar con TRIM/REPLACE al castear en Fase 3.
 - Conteos raw verificados == líneas de archivo (sin header): sessions 472.871, pageviews 1.188.124, orders 32.313, order_items 40.025, refunds 1.731, products 4.
-- Calidad (Fase 2): <!-- nulos, duplicados, rangos, PK natural, ventana temporal --> 
+- Calidad (Fase 2): verificada contra la carga raw ([`docs/02_data_quality.md`](docs/02_data_quality.md), queries en `src/04_data_profiling.sql`). PKs únicas; 0 huérfanos en 7 FKs; timestamps 100% parseables; ventana 2012-03-19→2015-03-19 (refunds cuelgan hasta 2015-04-01). **Defecto crítico:** `\r` (CHAR(13)) colgando en la ÚLTIMA columna de cada tabla salvo pageviews (rompe casteo numérico de cogs/refund) → strip `REPLACE(col,CHAR(13),'')` + TRIM en Fase 3. `utm_*` literal `'NULL'` en 83.328 sesiones = directo/orgánico (split por http_referer: 39.917 directo / 35.202 org-gsearch / 8.209 org-bsearch). Refund: tasa ≠ volumen (Sugar Panda 6,04% > Mr. Fuzzy 5,11%, pero Mr. Fuzzy lidera volumen). Catálogo: The Original Mr. Fuzzy, The Forever Love Bear, The Birthday Sugar Panda, The Hudson River Mini bear.
 - Modelo objetivo (Fase 3): estrella ligera — `fact_<grano>` + `dim_*`.
 - Capa de consumo (Fase 4): esquema `analysis`, una vista por historia, exportada a docs/data/*.json.
 
