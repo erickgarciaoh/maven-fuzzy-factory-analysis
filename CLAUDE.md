@@ -20,7 +20,7 @@ Primer paso de cualquier sesión de trabajo: verificar que el MCP de SQL respond
 | 4 | Análisis: una vista por pregunta de negocio en esquema `analysis`; export a JSON estático | Cada vista responde su pregunta; JSON generados | Hecho |
 | 5 | Diseño de delivery con el skill `/impeccable`: mapeo historia→visual, layout (anti-bloatware) | Brief de visualización aprobado | Hecho |
 | 6 | HTML data-story en docs/ (front-end primario, hosteable en GitHub Pages), construido con `/impeccable` y aplicando el design system de marca; tras el build, correr un audit con `/impeccable` y refinar la página al máximo | Página carga, charts renderizan, usa tokens de marca; auditada y refinada con `/impeccable` | Hecho |
-| 7 | Power BI: modelo + DAX + reporte PBIR + tema derivado de los tokens de marca + captura (capa aditiva) | Reporte abre y renderiza con el theme de marca; captura en powerbi/captures | Pendiente |
+| 7 | Power BI: modelo + DAX + reporte PBIR + tema derivado de los tokens de marca + captura (capa aditiva) | Reporte abre y renderiza con el theme de marca; captura en powerbi/captures | Descartada (2026-07-03, decisión de Erick: no se hace BI en este proyecto) |
 | 8 | Landing/repo: README de portfolio + deploy a GitHub Pages | Data-story en vivo accesible por URL | Pendiente |
 
 Regla de corte anti-abandono: las fases 1→6 forman una pieza de portfolio completa y publicable por sí sola. La 7 es aditiva; si baja la energía, parar en 6 con entregable terminado, no a medias.
