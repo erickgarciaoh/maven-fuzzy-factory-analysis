@@ -14,7 +14,7 @@ Primer paso de cualquier sesión de trabajo: verificar que el MCP de SQL respond
 | Fase | Descripción | Criterio de éxito | Estado |
 |---|---|---|---|
 | 0 | Setup: estructura, git, CLAUDE.md con plan | Repo versionado | Hecho |
-| 1 | Ingesta: BDD del proyecto + tabla raw (todo NVARCHAR) + SP importador del/los archivo(s) de data/raw/ (loop ejecutar→corregir) | `COUNT(*)` en raw == filas del archivo (sin truncamiento) | Pendiente |
+| 1 | Ingesta: BDD del proyecto + tabla raw (todo NVARCHAR) + SP importador del/los archivo(s) de data/raw/ (loop ejecutar→corregir) | `COUNT(*)` en raw == filas del archivo (sin truncamiento) | Hecho |
 | 2 | Exploración + calidad de datos: perfilar, VERIFICAR premisas contra la fuente real, fijar reglas de limpieza/ventana temporal, y PROPONER las preguntas de análisis que el dataset soporta | Doc de hallazgos; premisas confirmadas o corregidas; lista de preguntas de análisis (Fase 4) propuesta y aprobada por Erick | Pendiente |
 | 3 | Transformación: SPs que limpian/castean y materializan el modelo procesado (estrella ligera: fact + dims) | Tablas core pobladas; conteos cuadran con raw | Pendiente |
 | 4 | Análisis: una vista por pregunta de negocio en esquema `analysis`; export a JSON estático | Cada vista responde su pregunta; JSON generados | Pendiente |
@@ -45,9 +45,10 @@ El diseño del data-story HTML y del reporte de Power BI DEBE basarse en el desi
 - Aplicación: copiar/importar los tokens CSS a docs/assets/ del proyecto (no enlazar fuera del repo, para que GitHub Pages sea autocontenido); el theme de Power BI en powerbi/theme/ se deriva de los mismos tokens.
 
 ## Datos
-<!-- Rellenar tras Fase 1/2. -->
-- Fuente(s) canónica(s) (versionadas): `data/raw/<archivo>`. <!-- delimitador, encoding, columnas, formatos (decimal, fecha) --> 
-- Importar TODO como NVARCHAR a raw primero; castear en el SP de transformación (Fase 3), no en la carga.
+- Fuente(s) canónica(s) (versionadas): `data/raw/<archivo>` — 6 CSV (website_sessions, website_pageviews, orders, order_items, order_item_refunds, products) + `maven_fuzzy_factory_data_dictionary.csv`. Delimitador `,`, sin comillas salvo `website_pageviews.csv` (created_at entre `"`). `website_sessions.csv` usa el literal de texto `NULL` en utm_source/campaign/content (83.328 filas, tráfico directo/orgánico) — no vacío.
+- Importar TODO como NVARCHAR(4000) a `raw.*` primero; castear en el SP de transformación (Fase 3), no en la carga.
+- BULK INSERT en modo nativo (`FIELDTERMINATOR`/`ROWTERMINATOR`), sin `FORMAT='CSV'`+`FIELDQUOTE`: esa combinación rompe el proveedor OLE DB "BULK" (error IID_IColumnsInfo) en esta instancia al leer `website_pageviews.csv`. Consecuencia: `raw.website_pageviews.created_at` llega con comillas dobles literales — limpiar con TRIM/REPLACE al castear en Fase 3.
+- Conteos raw verificados == líneas de archivo (sin header): sessions 472.871, pageviews 1.188.124, orders 32.313, order_items 40.025, refunds 1.731, products 4.
 - Calidad (Fase 2): <!-- nulos, duplicados, rangos, PK natural, ventana temporal --> 
 - Modelo objetivo (Fase 3): estrella ligera — `fact_<grano>` + `dim_*`.
 - Capa de consumo (Fase 4): esquema `analysis`, una vista por historia, exportada a docs/data/*.json.
