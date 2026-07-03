@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>How a plush-toy store doubled its conversion rate — Maven Fuzzy Factory teardown</title>
+  <meta name="description" content="A three-year analytical teardown of Maven Fuzzy Factory: a 7-step conversion funnel, four reconstructed A/B tests with proportion z-tests, an Oaxaca growth decomposition, and channel unit economics — built on SQL Server." />
+  <meta name="author" content="Erick García" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="How a plush-toy store doubled its conversion rate" />
+  <meta property="og:description" content="Funnel, experiments, and the economics behind an 8.44% conversion rate — a SQL-centric data-story." />
+
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+
+  <!-- Fonts (brand-canonical families) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,300;0,400;0,500;0,600;1,400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="assets/tokens.css" />
+  <link rel="stylesheet" href="assets/tokens.dark.css" />
+  <link rel="stylesheet" href="assets/styles.css" />
+
+  <!-- Theme boot: set data-theme before first paint (no FOUC), swap no-js class -->
+  <script>
+    (function () {
+      var d = document.documentElement;
+      d.classList.remove('no-js'); d.classList.add('js');
+      try {
+        var saved = localStorage.getItem('mff-theme');
+        var sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        d.setAttribute('data-theme', saved || sys);
+      } catch (e) { d.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <!-- ECharts via CDN (project stack: no build step) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js" defer></script>
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+  <a class="sr-only" href="#hero">Skip to content</a>
+
+  <header class="topbar" id="topbar">
+    <div class="topbar__inner">
+      <a class="brandmark" href="#hero" aria-label="EG — Erick García, home">
+        <span class="brandmark__glyph" aria-hidden="true">
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" focusable="false">
+            <text x="32" y="34" text-anchor="middle" dominant-baseline="central" font-family="'Cormorant Garamond', Georgia, serif" font-size="34" font-weight="600" letter-spacing="-1" fill="currentColor">EG</text>
+          </svg>
+        </span>
+        <span class="brandmark__label">
+          <span class="brandmark__name">Erick García</span>
+          <span class="brandmark__role">Data Analyst</span>
+        </span>
+      </a>
+
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark theme" aria-pressed="false">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <span class="theme-toggle__label" id="theme-toggle-label">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="act-index" aria-label="Story sections">
+    <a href="#hero"><span class="act-index__dot"></span><span class="act-index__txt">Overview</span></a>
+    <a href="#funnel"><span class="act-index__dot"></span><span class="act-index__txt">01 · Funnel</span></a>
+    <a href="#experiments"><span class="act-index__dot"></span><span class="act-index__txt">02 · Experiments</span></a>
+    <a href="#decomposition"><span class="act-index__dot"></span><span class="act-index__txt">03 · Decomposition</span></a>
+    <a href="#economics"><span class="act-index__dot"></span><span class="act-index__txt">04 · Economics</span></a>
+    <a href="#method"><span class="act-index__dot"></span><span class="act-index__txt">Method</span></a>
+  </nav>
+
+  <main>
+    <!-- ===================== HERO ===================== -->
+    <section class="hero" id="hero" aria-labelledby="hero-title">
+      <div class="container">
+        <span class="hero__provenance"><span class="dot" aria-hidden="true"></span>Fictional dataset · SQL Server → star schema → analysis views</span>
+
+        <h1 class="hero__title display" id="hero-title">How a plush-toy store <em>doubled</em> its conversion rate.</h1>
+        <p class="hero__sub lede">A three-year teardown of Maven Fuzzy Factory — the funnel, the experiments, and the economics behind 8.44%.</p>
+
+        <div class="hero__metric">
+          <div class="hero__cvr">
+            <span class="metric metric-lg from" data-num="cvr-2012">4.14%</span>
+            <span class="metric metric-lg arrow" aria-hidden="true">→</span>
+            <span class="metric metric-xl to" data-num="cvr-2015">8.44%</span>
+          </div>
+          <span class="hero__delta" data-num="cvr-delta"><span aria-hidden="true">▲</span> +104% <span class="caption" style="font-weight:500">conversion rate, 2012→2015</span></span>
+        </div>
+
+        <div class="chart hero__spark chart-state" id="state-spark">
+          <div id="chart-spark" role="img" aria-label="Quarterly conversion rate trend, rising from 3.19% in Q1 2012 to 8.44% in Q1 2015."></div>
+          <div class="chart-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Couldn't load the trend chart. The numbers above still hold.</span></div>
+        </div>
+        <p class="caption hero__caption">Quarterly conversion rate, all channels. Amber marks the metric this whole story explains.</p>
+
+        <div class="kpis reveal">
+          <div class="kpi"><div class="kpi__val metric" data-num="kpi-sessions">472,871</div><div class="kpi__label">Sessions</div></div>
+          <div class="kpi"><div class="kpi__val metric" data-num="kpi-orders">32,313</div><div class="kpi__label">Orders</div></div>
+          <div class="kpi"><div class="kpi__val metric" data-num="kpi-revenue">$1.94M</div><div class="kpi__label">Revenue</div></div>
+          <div class="kpi"><div class="kpi__val metric" data-num="kpi-aov">$60</div><div class="kpi__label">Avg. order value</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ACT 01 — FUNNEL ===================== -->
+    <section class="act" id="funnel" aria-labelledby="funnel-title">
+      <div class="container">
+        <header class="act__head reveal">
+          <div class="act__num-row"><span class="act-num">01</span><span class="act__q">Where do people fall out?</span></div>
+          <h2 class="act__title" id="funnel-title">The seven-step funnel, and the mobile gap</h2>
+          <p class="prose">Every session that converts walks the same path — from a landing page to the thank-you screen. Tracing that path by device, one quarter at a time, shows where buyers leak out. The pattern is stubborn: <strong>mobile loses them fastest, and earliest.</strong></p>
+        </header>
+
+        <div class="controls reveal" role="group" aria-label="Funnel controls">
+          <div>
+            <span class="control__label" id="device-label">Emphasize device</span>
+            <div class="segmented" role="group" aria-labelledby="device-label">
+              <button type="button" data-device="mobile" aria-pressed="true">Mobile</button>
+              <button type="button" data-device="desktop" aria-pressed="false">Desktop</button>
+            </div>
+          </div>
+          <div class="quarter-control">
+            <label class="control__label" for="quarter-range" style="width:100%">Quarter</label>
+            <input type="range" id="quarter-range" min="0" max="12" step="1" value="11" aria-describedby="quarter-out" />
+            <output id="quarter-out" for="quarter-range">Q4 2014</output>
+          </div>
+        </div>
+
+        <div class="chart chart--funnel chart-state" id="state-funnel">
+          <div id="chart-funnel" role="img" aria-label="Horizontal funnel of seven steps by device for the selected quarter."></div>
+          <div class="chart-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Couldn't load the funnel. See the table below for the selected quarter.</span></div>
+        </div>
+
+        <p class="finding mt-8 reveal">
+          In <strong data-txt="funnel-quarter">Q4 2014</strong>, desktop carried <span class="amber" data-num="funnel-desktop">9.6%</span> of sessions all the way to purchase — mobile carried just <span class="amber" data-num="funnel-mobile">3.4%</span>. The widest leak is the same every quarter: the jump from landing to the <strong>products page</strong>, where mobile drops off fastest.
+        </p>
+
+        <details class="data-table-wrap reveal">
+          <summary class="caption" style="cursor:pointer;padding:8px 0">View the underlying numbers for this quarter</summary>
+          <table class="data-table" id="table-funnel"><caption>Funnel by step — selected quarter and device</caption></table>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===================== ACT 02 — EXPERIMENTS ===================== -->
+    <section class="act" id="experiments" aria-labelledby="experiments-title">
+      <div class="container">
+        <header class="act__head reveal">
+          <div class="act__num-row"><span class="act-num">02</span><span class="act__q">Was it luck? No — it was tested.</span></div>
+          <h2 class="act__title" id="experiments-title">Four experiments, reconstructed and tested</h2>
+          <p class="prose">The growth wasn't an accident of traffic. Across the three years, the site ran landing-page and checkout experiments. I reconstructed four of them from the data and put a proportion z-test on each — <strong>including the one that lost.</strong></p>
+          <p class="prose caption">Assignment is inferred from disjoint date windows, not a labeled flag. Reported as a reconstruction, with a pooled-variance z-test on each overlap window.</p>
+        </header>
+
+        <div class="chart chart--tall chart-state" id="state-ab">
+          <div id="chart-ab" role="img" aria-label="Dot plot: control versus variant conversion rate with 95% confidence intervals for four A/B tests."></div>
+          <div class="chart-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Couldn't load the experiment chart. The full results are in the table below.</span></div>
+        </div>
+
+        <p class="finding mt-8 reveal">
+          The needle-mover was the checkout test: <strong>billing vs. billing-2</strong> lifted conversion by <span class="amber" data-num="ab-billing-lift">+17.0pp</span> (z&nbsp;=&nbsp;<span data-num="ab-billing-z">9.84</span>), worth roughly <span class="amber" data-num="ab-billing-rev">$87K</span> annualized. And the losing lander-4 test is shown, not buried — it cost <span data-num="ab-lander4-lift">−1.47pp</span> at z&nbsp;=&nbsp;<span data-num="ab-lander4-z">−3.23</span>. Honesty is part of the evidence.
+        </p>
+
+        <div class="panel mt-10 reveal">
+          <h3 class="panel__title">All four tests</h3>
+          <div style="overflow-x:auto">
+            <table class="ab-table" id="table-ab"><caption>Reconstructed A/B tests — pooled-variance z-test on each overlap window. Annualized lift extrapolates the window's daily rate (a planning ceiling, not a forecast).</caption></table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ACT 03 — DECOMPOSITION ===================== -->
+    <section class="act" id="decomposition" aria-labelledby="decomposition-title">
+      <div class="container">
+        <header class="act__head reveal">
+          <div class="act__num-row"><span class="act-num">03</span><span class="act__q">Real improvement, or just a better traffic mix?</span></div>
+          <h2 class="act__title" id="decomposition-title">Real improvement, not a traffic-mix illusion</h2>
+          <p class="prose">A rising conversion rate can be a mirage — maybe the site just started buying better traffic. A symmetric (Oaxaca-style) decomposition settles it, splitting the gain into <strong>getting better at converting</strong> versus <strong>shifting the channel mix.</strong></p>
+        </header>
+
+        <div class="chart-duo chart-duo--split">
+          <div class="chart-block">
+            <div class="chart-block__title">The +4.30pp gain, decomposed</div>
+            <div class="chart-block__sub">2012 baseline → within-channel gains → mix shift → 2015</div>
+            <div class="chart chart--tall chart-state" id="state-waterfall">
+              <div id="chart-waterfall" role="img" aria-label="Waterfall: conversion rate rises from 4.14% by 4.27 points of within-channel improvement and 0.03 points of mix shift to 8.44%."></div>
+              <div class="chart-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Couldn't load the waterfall chart.</span></div>
+            </div>
+          </div>
+          <div class="chart-block">
+            <div class="chart-block__title">Who drove the within-channel gain</div>
+            <div class="chart-block__sub">Contribution to the total lift, by channel (pp)</div>
+            <div class="chart chart--tall chart-state" id="state-contrib">
+              <div id="chart-contrib" role="img" aria-label="Horizontal bars of each channel's contribution to the within-channel conversion gain; paid Google search dominates."></div>
+              <div class="chart-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Couldn't load the contribution chart.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <p class="finding mt-10 reveal">
+          Of the total gain, <span class="amber" data-num="decomp-intra">+4.27pp</span> came from within-channel conversion improvement and only <span data-num="decomp-mix">+0.03pp</span> from shifting the mix. Paid Google search alone contributed <span class="amber" data-num="decomp-gsearch">+3.26pp</span>. The site got better at converting; the audience barely changed.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===================== ACT 04 — ECONOMICS ===================== -->
+    <section class="act" id="economics" aria-labelledby="economics-title">
+      <div class="container">
+        <header class="act__head reveal">
+          <div class="act__num-row"><span class="act-num">04</span><span class="act__q">Does the growth pay?</span></div>
+          <h2 class="act__title" id="economics-title">Growth that pays — with one quarter that stings</h2>
+          <p class="prose">Conversion is only half the story; the other half is whether the orders are worth having. Gross margin holds at <strong data-num="eco-margin">62.7%</strong> across channels and quarters. Refund rates stay low — with one flagship exception.</p>
+        </header>
+
+        <div class="chart-duo chart-duo--split">
+          <div class="chart-block">
+            <div class="chart-block__title">Quarterly revenue by channel</div>
+            <div class="chart-block__sub">Paid Google search carries the business; gross margin holds steady</div>
+            <div class="chart chart--tall chart-state" id="state-revenue">
+              <div id="chart-revenue" role="img" aria-label="Stacked area of quarterly revenue by channel; paid Google search dominates and grows."></div>
+              <div class="chart-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Couldn't load the revenue chart.</span></div>
+            </div>
+          </div>
+          <div class="chart-block">
+            <div class="chart-block__title">Refund rate by product</div>
+            <div class="chart-block__sub">Rate, not volume — the flagship's Q3-2014 spike stands out</div>
+            <div class="chart chart--tall chart-state" id="state-refund">
+              <div id="chart-refund" role="img" aria-label="Lines of refund rate by product over time; The Original Mr. Fuzzy spikes to 10.55% in Q3 2014."></div>
+              <div class="chart-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Couldn't load the refund chart.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <p class="finding mt-10 reveal">
+          Around <span class="amber" data-num="eco-margin-2">62%</span> gross margin, steady across channels. Refund rates stay low except a <span class="amber">Q3-2014 spike to <span data-num="eco-spike">10.55%</span></span> on The Original Mr. Fuzzy — a volume leader, not the chronic-rate leader (that's the Birthday Sugar Panda). Economics stop at gross margin: no acquisition cost (CAC / ROAS) exists in this data.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===================== CODA — METHOD ===================== -->
+    <section class="coda" id="method" aria-labelledby="method-title">
+      <div class="container">
+        <div class="coda__grid">
+          <div>
+            <div class="act__num-row"><span class="act__q">Show the work</span></div>
+            <h2 class="act__title" id="method-title" style="font-family:var(--font-display)">How this was built, and what it can't tell you</h2>
+            <ul class="limits">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><b>Fictional data.</b> Maven Fuzzy Factory is a teaching dataset with idealized patterns. This is a technique demo, not real-world market findings.</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><b>Inferred A/B assignment.</b> No labeled test flag exists; arms are reconstructed from disjoint date windows and reported as such.</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><b>Session-scoped attribution.</b> No cross-device stitching; each session is credited to its own entry channel.</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><b>Gross-margin economics only.</b> COGS and refunds are in the data; acquisition cost is not, so there is no CAC, ROAS, or true contribution margin.</span></li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span><b>Annualized lifts are ceilings.</b> They extrapolate a test window's daily rate with no seasonality — a planning ceiling, not a forecast.</span></li>
+            </ul>
+          </div>
+
+          <div>
+            <div class="act__num-row"><span class="act__q">Provenance</span></div>
+            <h3 class="chart-block__title" style="font-size:1.05rem">From six CSVs to this page</h3>
+            <div class="provenance-chain" aria-label="Data pipeline: six CSV files to raw NVARCHAR to star schema to analysis views to JSON">
+              <span class="node">6 CSV</span><span class="arrow" aria-hidden="true">→</span>
+              <span class="node">raw NVARCHAR</span><span class="arrow" aria-hidden="true">→</span>
+              <span class="node">star schema</span><span class="arrow" aria-hidden="true">→</span>
+              <span class="node">analysis views</span><span class="arrow" aria-hidden="true">→</span>
+              <span class="node">JSON</span>
+            </div>
+
+            <p class="caption mt-8">The funnel percentages come straight from window functions over the pageview fact — no hand-computed steps:</p>
+            <pre class="code-block" aria-label="SQL excerpt: the funnel window functions"><code><span class="c">-- % of step 1, and step-to-step drop, per quarter × device</span>
+<span class="k">CAST</span>(sessions_reached <span class="k">AS</span> <span class="k">DECIMAL</span>(18,6))
+  / <span class="f">NULLIF</span>(<span class="f">FIRST_VALUE</span>(sessions_reached)
+      <span class="k">OVER</span> (<span class="k">PARTITION BY</span> quarter_start, device_type
+             <span class="k">ORDER BY</span> step_order), 0) <span class="k">AS</span> pct_of_step1,
+<span class="k">CAST</span>(sessions_reached <span class="k">AS</span> <span class="k">DECIMAL</span>(18,6))
+  / <span class="f">NULLIF</span>(<span class="f">LAG</span>(sessions_reached)
+      <span class="k">OVER</span> (<span class="k">PARTITION BY</span> quarter_start, device_type
+             <span class="k">ORDER BY</span> step_order), 0) <span class="k">AS</span> pct_of_prev_step</code></pre>
+
+            <div class="repo-links" id="repo-links">
+              <a class="btn btn--primary" id="repo-link" href="https://github.com/erickgarciaoh/maven-fuzzy-factory-analysis" rel="noopener" target="_blank">
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+                View the repository
+              </a>
+              <a class="btn btn--ghost" id="sql-link" href="https://github.com/erickgarciaoh/maven-fuzzy-factory-analysis/blob/HEAD/src/07_create_analysis_views.sql" rel="noopener" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                Read the SQL
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__inner">
+        <span>Maven Fuzzy Factory · analytical teardown · 2012–2015</span>
+        <span class="site-footer__sign">Built by <em>Erick García</em></span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
