@@ -52,6 +52,25 @@
   }
   function countKey(key, to, fmt, dur) { countUp(document.querySelector('[data-num="' + key + '"]'), to, fmt, dur); }
 
+  // Formatter for animated table cells, keyed by kind. Handles the running value.
+  function cntFmt(v, kind) {
+    switch (kind) {
+      case 'int': return nf0.format(Math.round(v));
+      case 'pct2': return v.toFixed(2) + '%';
+      case 'pp': return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + 'pp';
+      case 'z': return (v >= 0 ? '' : '−') + Math.abs(v).toFixed(2);
+      case 'moneyk': return (v < 0 ? '−' : '') + '$' + Math.round(Math.abs(v) / 1000) + 'K';
+      default: return String(v);
+    }
+  }
+  function animateCnt(scope, dur) {
+    if (!scope) return;
+    scope.querySelectorAll('.cnt').forEach(function (el) {
+      var to = +el.getAttribute('data-to'), kind = el.getAttribute('data-kind');
+      countUp(el, to, function (v) { return cntFmt(v, kind); }, dur || 1100);
+    });
+  }
+
   // Fire cb once when el first enters the viewport (immediately if already in view / reduced-motion).
   function onceVisible(el, cb) {
     if (!el) { cb(); return; }
@@ -356,6 +375,7 @@
 
     drawAB(tests);
     buildABTable(tests);
+    onceVisible(document.querySelector('#experiments .panel'), function () { animateCnt(document.getElementById('table-ab')); });
   }
 
   function variantColor(t, p) {
@@ -430,23 +450,22 @@
 
   function buildABTable(tests) {
     var t = document.getElementById('table-ab'); if (!t) return;
+    function cnt(to, kind) { return '<span class="cnt" data-to="' + to + '" data-kind="' + kind + '">' + cntFmt(to, kind) + '</span>'; }
     var head = '<thead><tr><th>Test</th><th>Window</th><th>Sessions<br>C / V</th><th>CVR<br>control</th><th>CVR<br>variant</th><th>Lift</th><th>z</th><th>Sig.</th><th>Annualized<br>lift</th></tr></thead>';
     var rows = tests.map(function (t) {
       var r = t.res, win = fmtDate(r.window_start) + ' – ' + fmtDate(r.window_end);
       var badge = r.significant_95
         ? (r.lift_pp < 0 ? '<span class="badge badge--loss">lost</span>' : '<span class="badge badge--win">' + (r.significant_99 ? '99%' : '95%') + '</span>')
         : '<span class="badge badge--ns">n.s.</span>';
-      var rev = r.annualized_revenue_lift_usd;
-      var revTxt = (rev >= 0 ? '' : '−') + money(Math.abs(rev));
       return '<tr><td><b>' + t.meta.label + '</b><br><span class="caption">' + t.meta.scope + '</span></td>' +
         '<td>' + win + '</td>' +
-        '<td>' + nf0.format(t.control.sessions) + ' / ' + nf0.format(t.variant.sessions) + '</td>' +
-        '<td>' + pct(t.control.cvr, 2) + '</td>' +
-        '<td>' + pct(t.variant.cvr, 2) + '</td>' +
-        '<td>' + ppSigned(r.lift_pp, 2) + '</td>' +
-        '<td class="mono">' + num(r.z_score, 2) + '</td>' +
+        '<td>' + cnt(t.control.sessions, 'int') + ' / ' + cnt(t.variant.sessions, 'int') + '</td>' +
+        '<td>' + cnt(t.control.cvr * 100, 'pct2') + '</td>' +
+        '<td>' + cnt(t.variant.cvr * 100, 'pct2') + '</td>' +
+        '<td>' + cnt(r.lift_pp * 100, 'pp') + '</td>' +
+        '<td class="mono">' + cnt(r.z_score, 'z') + '</td>' +
         '<td>' + badge + '</td>' +
-        '<td>' + revTxt + '</td></tr>';
+        '<td>' + cnt(r.annualized_revenue_lift_usd, 'moneyk') + '</td></tr>';
     }).join('');
     t.innerHTML = head + '<tbody>' + rows + '</tbody>';
   }

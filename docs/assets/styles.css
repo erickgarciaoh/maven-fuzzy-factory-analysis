@@ -180,15 +180,21 @@ img, svg { max-width: 100%; display: block; }
 @media (min-width: 768px) { .theme-toggle__label { display: inline; } }
 
 /* ---- Act index (side nav) ----------------------------------------- */
+/* Lives entirely in the left gutter: the dot column sits just left of the
+   content, and labels grow LEFT into the empty margin — never over content.
+   Labels are capped to the available gutter and ellipsize on narrow screens. */
 .act-index {
   position: fixed; z-index: var(--z-nav);
-  left: max(1rem, calc((100vw - var(--container)) / 2 - 3.25rem));
+  right: calc(50% + var(--container) / 2 + 20px);
   top: 50%; transform: translateY(-50%);
-  display: flex; flex-direction: column; gap: var(--space-1);
+  display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1);
+  max-width: calc(50vw - var(--container) / 2 - 28px);
+  pointer-events: none;
 }
 .act-index a {
-  display: flex; align-items: center; gap: var(--space-3);
-  padding: 6px 4px; text-decoration: none;
+  pointer-events: auto; max-width: 100%;
+  display: flex; flex-direction: row-reverse; align-items: center; gap: var(--space-3);
+  padding: 5px 0; text-decoration: none;
   color: var(--text-caption);
   transition: color var(--motion-base);
 }
@@ -201,22 +207,27 @@ img, svg { max-width: 100%; display: block; }
 .act-index__txt {
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase; white-space: nowrap;
-  opacity: 0; transform: translateX(-4px);
+  overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transform: translateX(6px);
   transition: opacity var(--motion-base), transform var(--motion-base);
 }
 .act-index a:hover { color: var(--text-primary); }
 .act-index a:hover .act-index__dot { background: var(--text-caption); transform: scale(1.25); }
-.act-index a:hover .act-index__txt { opacity: 1; transform: translateX(0); }
+.act-index a:hover .act-index__txt { opacity: 1; transform: none; }
+/* Persistent active label only where the gutter fits it whole; below that the
+   highlighted dot carries the state and labels reveal on hover. */
+@media (min-width: 1560px) {
+  .act-index a.is-active .act-index__txt { opacity: 1; transform: none; }
+}
 .act-index a.is-active { color: var(--amber-text); }
 .act-index a.is-active .act-index__dot {
   background: var(--amber-text); transform: scale(1.85);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--focal) 22%, transparent);
 }
-.act-index a.is-active .act-index__txt { opacity: 1; transform: translateX(0); }
 @media (prefers-reduced-motion: reduce) {
-  .act-index__dot, .act-index a.is-active .act-index__dot { transition: none; }
+  .act-index__dot, .act-index a.is-active .act-index__dot, .act-index__txt { transition: none; }
 }
-@media (max-width: 1199px) { .act-index { display: none; } }
+@media (max-width: 1279px) { .act-index { display: none; } }
 
 /* ---- Section rhythm ----------------------------------------------- */
 .act { padding-block: clamp(3.5rem, 9vw, 6rem); }
