@@ -21,7 +21,7 @@ Primer paso de cualquier sesión de trabajo: verificar que el MCP de SQL respond
 | 5 | Diseño de delivery con el skill `/impeccable`: mapeo historia→visual, layout (anti-bloatware) | Brief de visualización aprobado | Hecho |
 | 6 | HTML data-story en docs/ (front-end primario, hosteable en GitHub Pages), construido con `/impeccable` y aplicando el design system de marca; tras el build, correr un audit con `/impeccable` y refinar la página al máximo | Página carga, charts renderizan, usa tokens de marca; auditada y refinada con `/impeccable` | Hecho |
 | 7 | Power BI: modelo + DAX + reporte PBIR + tema derivado de los tokens de marca + captura (capa aditiva) | Reporte abre y renderiza con el theme de marca; captura en powerbi/captures | Descartada (2026-07-03, decisión de Erick: no se hace BI en este proyecto) |
-| 8 | Landing/repo: README de portfolio + deploy a GitHub Pages | Data-story en vivo accesible por URL | Pendiente |
+| 8 | Landing/repo: README de portfolio + deploy a GitHub Pages | Data-story en vivo accesible por URL | Hecho |
 
 Regla de corte anti-abandono: las fases 1→6 forman una pieza de portfolio completa y publicable por sí sola. La 7 es aditiva; si baja la energía, parar en 6 con entregable terminado, no a medias.
 
@@ -40,7 +40,7 @@ Fijadas y aprobadas por Erick en Fase 2 (2026-07-03). Detalle y límites de mét
 - Motor de datos único: SQL Server, instancia `XTREMUS\DB001` (Windows Auth), vía MCP `sql-mcp-server`.
 - Consumo primario: HTML/JS data-story (ECharts vía CDN, sin build; hosteable en GitHub Pages desde /docs).
 - Consumo aditivo: Power BI + DAX (PBIR en repo + capturas + publish-to-web manual).
-- Versionado: git local desde Fase 0.
+- Versionado: git local desde Fase 0. Repo remoto público desde Fase 8: `github.com/erickgarciaoh/maven-fuzzy-factory-analysis` (creado con `gh repo create`), rama `master`. GitHub Pages sirve `docs/` desde esa rama (deploy from branch, sin Actions/build) en `https://erickgarciaoh.github.io/maven-fuzzy-factory-analysis/`. Nota operativa: el primer deploy de Pages quedó atascado en `queued` sin error explícito (ya había pasado en otro repo); el fix fue `DELETE` + `POST` a `repos/.../pages` para recrear el sitio desde cero, lo que disparó un run limpio que sí completó.
 
 ## Diseño (marca) — input fijo
 El diseño del data-story HTML y del reporte de Power BI DEBE basarse en el design system de marca personal en `D:\Dev\Projects\personal-brand-design`. No inventar paleta, tipografía ni espaciado: derivarlos de los tokens. Fuentes canónicas:
